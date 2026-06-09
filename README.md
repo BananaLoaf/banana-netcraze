@@ -1,2 +1,2 @@
 # banana-netcraze
-UNOFFICIAL library for Keenetic/Netcraze routers
+UNOFFICIAL python library for Keenetic/Netcraze routers
