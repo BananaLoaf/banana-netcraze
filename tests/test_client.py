@@ -2,12 +2,8 @@ import httpx
 import pytest
 
 from banana_netcraze.client import NetcrazeClient
-from banana_netcraze.models.association import (
-    AssociationsModel,
-    AssociationStationModel,
-)
+from banana_netcraze.models.association import AssociationStationModel
 from banana_netcraze.models.device import DeviceModel
-from banana_netcraze.models.hotspot import HotspotModel
 from banana_netcraze.models.interface import InterfaceModel
 from banana_netcraze.models.version import VersionModel
 
@@ -151,12 +147,12 @@ class TestAPI:
 
     def test_get_associations(self, client):
         res = client.get_associations()
-        assert isinstance(res, AssociationsModel)
-        for station in res.station:
+        assert isinstance(res, list)
+        for station in res:
             assert isinstance(station, AssociationStationModel)
 
     def test_get_hotspot(self, client):
         res = client.get_hotspot()
-        assert isinstance(res, HotspotModel)
-        for host in res.host:
+        assert isinstance(res, list)
+        for host in res:
             assert isinstance(host, DeviceModel)

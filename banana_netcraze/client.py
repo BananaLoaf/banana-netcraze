@@ -4,9 +4,8 @@ from typing import Any
 import httpx
 from loguru import logger
 
-from banana_netcraze.models.association import AssociationsModel
+from banana_netcraze.models.association import AssociationStationModel
 from banana_netcraze.models.device import DeviceModel
-from banana_netcraze.models.hotspot import HotspotModel
 from banana_netcraze.models.interface import InterfaceModel
 from banana_netcraze.models.version import VersionModel
 
@@ -221,18 +220,20 @@ class NetcrazeClient:
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
         data = self._get_json("/rci/show/device-list")
-        return [DeviceModel.model_validate(device) for device in data["host"]]
+        return [DeviceModel.model_validate(device) for device in data.get("host", [])]
 
-    def get_associations(self) -> AssociationsModel:
+    def get_associations(self) -> list[AssociationStationModel]:
         """Fetch wireless station associations.
 
-        :returns: Parsed wireless association data.
+        :returns: Parsed wireless association stations.
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        return AssociationsModel.model_validate(
-            self._get_json("/rci/show/associations")
-        )
+        data = self._get_json("/rci/show/associations")
+        return [
+            AssociationStationModel.model_validate(station)
+            for station in data.get("station", [])
+        ]
 
     def get_arp(self) -> list[DeviceModel]:
         """Fetch the router ARP table.
@@ -244,11 +245,12 @@ class NetcrazeClient:
         data = self._get_json("/rci/show/ip/arp")
         return [DeviceModel.model_validate(device) for device in data]
 
-    def get_hotspot(self) -> HotspotModel:
+    def get_hotspot(self) -> list[DeviceModel]:
         """Fetch hotspot host information.
 
-        :returns: Parsed hotspot host data.
+        :returns: Parsed hotspot hosts.
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        return HotspotModel.model_validate(self._get_json("/rci/show/ip/hotspot"))
+        data = self._get_json("/rci/show/ip/hotspot")
+        return [DeviceModel.model_validate(host) for host in data.get("host", [])]

@@ -30,9 +30,3 @@ class AssociationStationModel(AutoNoneBaseModel):
     dl_ofdma: bool = Field(alias="dl-ofdma")
     ul_ofdma: bool = Field(alias="ul-ofdma")
     roam: str
-
-
-class AssociationsModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    station: list[AssociationStationModel]

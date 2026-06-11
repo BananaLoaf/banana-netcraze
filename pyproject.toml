@@ -67,8 +67,7 @@ banana-netcraze = "banana_netcraze.__main__:main"
 
 [tool.poe.tasks]
 lint-format = "ruff format ."
-lint-check = "ruff check --fix ."
-isort = "isort ."
-lint = ["isort", "lint-format", "lint-check"]
+lint-check = "ruff check --fix --extend-select I ."
+lint = ["lint-format", "lint-check"]
 test = "pytest"
 typecheck = "mypy banana_netcraze/"
