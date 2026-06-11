@@ -3,7 +3,9 @@ import hashlib
 import httpx
 from loguru import logger
 
+from banana_netcraze.models.association import AssociationsModel
 from banana_netcraze.models.device import DeviceModel
+from banana_netcraze.models.hotspot import HotspotModel
 from banana_netcraze.models.interface import InterfaceModel
 from banana_netcraze.models.version import VersionModel
 
@@ -99,17 +101,17 @@ class NetcrazeClient:
         res.raise_for_status()
         return [DeviceModel(**device) for device in res.json()["host"]]
 
-    def get_associations(self) -> dict:
+    def get_associations(self) -> AssociationsModel:
         res = self.session.get(f"{RCI_ENDPOINT}/show/associations")
         res.raise_for_status()
-        return res.json()
+        return AssociationsModel(**res.json())
 
     def get_arp(self) -> list[DeviceModel]:
         res = self.session.get(f"{RCI_ENDPOINT}/show/ip/arp")
         res.raise_for_status()
         return [DeviceModel(**device) for device in res.json()]
 
-    def get_hotspot(self) -> dict:
+    def get_hotspot(self) -> HotspotModel:
         res = self.session.get(f"{RCI_ENDPOINT}/show/ip/hotspot")
         res.raise_for_status()
-        return res.json()
+        return HotspotModel(**res.json())
