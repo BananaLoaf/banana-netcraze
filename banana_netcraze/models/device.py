@@ -72,3 +72,4 @@ class DeviceModel(AutoNoneBaseModel):
     port: str
     dl_ofdma: bool = Field(alias="dl-ofdma")
     dl_mu: bool = Field(alias="dl-mu")
+    roam: str

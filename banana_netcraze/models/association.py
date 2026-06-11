@@ -29,6 +29,7 @@ class AssociationStationModel(AutoNoneBaseModel):
     ul_mu: bool = Field(alias="ul-mu")
     dl_ofdma: bool = Field(alias="dl-ofdma")
     ul_ofdma: bool = Field(alias="ul-ofdma")
+    roam: str
 
 
 class AssociationsModel(AutoNoneBaseModel):

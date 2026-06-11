@@ -1,4 +1,5 @@
 import hashlib
+from typing import Any
 
 import httpx
 from loguru import logger
@@ -9,21 +10,29 @@ from banana_netcraze.models.hotspot import HotspotModel
 from banana_netcraze.models.interface import InterfaceModel
 from banana_netcraze.models.version import VersionModel
 
-AUTH_ENDPOINT = "/auth"
-RCI_ENDPOINT = "/rci"
-CI_ENDPOINT = "/ci"
-
 
 class NetcrazeClient:
-    def __init__(self, url: str, username: str, password: str):
+    def __init__(
+        self,
+        url: str,
+        username: str,
+        password: str,
+        timeout: float | httpx.Timeout = 10.0,
+        transport: httpx.BaseTransport | None = None,
+    ):
         """Create a client for a Netcraze/Keenetic router.
 
         :param url: Base URL of the router web interface.
         :param username: Router account username.
         :param password: Router account password.
+        :param timeout: Request timeout configuration passed to ``httpx.Client``.
+        :param transport: Optional HTTP transport for tests or custom networking.
         """
         self.url = url.rstrip("/")
         self._session: None | httpx.Client = None
+        self._is_authenticated = False
+        self._timeout = timeout
+        self._transport = transport
 
         self._username = username
         self._password = password
@@ -35,7 +44,11 @@ class NetcrazeClient:
         :returns: Configured ``httpx.Client`` bound to the router base URL.
         """
         if self._session is None or self._session.is_closed:
-            self._session = httpx.Client(base_url=self.url)
+            self._session = httpx.Client(
+                base_url=self.url,
+                timeout=self._timeout,
+                transport=self._transport,
+            )
         return self._session
 
     def __enter__(self):
@@ -63,11 +76,16 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the router rejects authentication.
         """
         logger.info("Authenticating")
+        self._is_authenticated = False
 
-        res = self.session.get(AUTH_ENDPOINT)
+        res = self.session.get("/auth")
 
-        device = res.headers["X-NDM-Realm"]
-        token = res.headers["X-NDM-Challenge"]
+        try:
+            device = res.headers["X-NDM-Realm"]
+            token = res.headers["X-NDM-Challenge"]
+        except KeyError:
+            res.raise_for_status()
+            raise
 
         digits = f"{self._username}:{device}:{self._password}"
         digits = hashlib.md5(digits.encode("utf-8")).hexdigest()
@@ -75,16 +93,57 @@ class NetcrazeClient:
         digits = hashlib.sha256(digits.encode("utf-8")).hexdigest()
 
         res = self.session.post(
-            url=AUTH_ENDPOINT,
+            url="/auth",
             json={"login": self._username, "password": digits},
         )
         res.raise_for_status()
+        self._is_authenticated = True
         logger.success("Authentication successful")
 
     def close(self):
         """Close the underlying HTTP session."""
-        self.session.close()
-        self._session = None
+        if self._session is not None:
+            self._session.close()
+            self._session = None
+        self._is_authenticated = False
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        authenticate: bool = True,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        if authenticate and not self._is_authenticated:
+            self.auth()
+
+        res = self.session.request(method, url, **kwargs)
+        if authenticate and res.status_code in (401, 403):
+            logger.info("Authentication expired, retrying")
+            self.auth()
+            res = self.session.request(method, url, **kwargs)
+
+        res.raise_for_status()
+        return res
+
+    def _get(
+        self,
+        url: str,
+        *,
+        authenticate: bool = True,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        return self._request("GET", url, authenticate=authenticate, **kwargs)
+
+    def _get_json(
+        self,
+        url: str,
+        *,
+        authenticate: bool = True,
+        **kwargs: Any,
+    ) -> Any:
+        return self._get(url, authenticate=authenticate, **kwargs).json()
 
     def download_startup_config(self) -> tuple[str, str]:
         """Download the router startup configuration.
@@ -94,8 +153,7 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the download request fails.
         """
         logger.info("Downloading startup-config.txt")
-        res = self.session.get(f"{CI_ENDPOINT}/startup-config.txt")
-        res.raise_for_status()
+        res = self._get("/ci/startup-config.txt")
         logger.success("Done!")
         return (
             res.headers["Content-Disposition"].split("filename=")[-1].strip('"'),
@@ -110,8 +168,7 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the download request fails.
         """
         logger.info("Downloading firmware")
-        res = self.session.get(f"{CI_ENDPOINT}/firmware")
-        res.raise_for_status()
+        res = self._get("/ci/firmware")
         logger.success("Done!")
         return (
             res.headers["Content-Disposition"].split("filename=")[-1].strip('"'),
@@ -125,9 +182,7 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/version")
-        res.raise_for_status()
-        return VersionModel(**res.json())
+        return VersionModel.model_validate(self._get_json("/rci/show/version"))
 
     def get_interfaces(self) -> dict[str, InterfaceModel]:
         """Fetch all router network interfaces.
@@ -136,10 +191,10 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/interface")
-        res.raise_for_status()
+        data = self._get_json("/rci/show/interface")
         return {
-            name: InterfaceModel(**interface) for name, interface in res.json().items()
+            name: InterfaceModel.model_validate(interface)
+            for name, interface in data.items()
         }
 
     def get_interface(self, interface_name: str) -> InterfaceModel:
@@ -150,9 +205,12 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/interface?name={interface_name}")
-        res.raise_for_status()
-        return InterfaceModel(**res.json())
+        return InterfaceModel.model_validate(
+            self._get_json(
+                "/rci/show/interface",
+                params={"name": interface_name},
+            )
+        )
 
     def get_device_list(self) -> list[DeviceModel]:
         """Fetch hosts known to the router device list.
@@ -162,9 +220,8 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/device-list")
-        res.raise_for_status()
-        return [DeviceModel(**device) for device in res.json()["host"]]
+        data = self._get_json("/rci/show/device-list")
+        return [DeviceModel.model_validate(device) for device in data["host"]]
 
     def get_associations(self) -> AssociationsModel:
         """Fetch wireless station associations.
@@ -173,9 +230,9 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/associations")
-        res.raise_for_status()
-        return AssociationsModel(**res.json())
+        return AssociationsModel.model_validate(
+            self._get_json("/rci/show/associations")
+        )
 
     def get_arp(self) -> list[DeviceModel]:
         """Fetch the router ARP table.
@@ -184,9 +241,8 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/ip/arp")
-        res.raise_for_status()
-        return [DeviceModel(**device) for device in res.json()]
+        data = self._get_json("/rci/show/ip/arp")
+        return [DeviceModel.model_validate(device) for device in data]
 
     def get_hotspot(self) -> HotspotModel:
         """Fetch hotspot host information.
@@ -195,6 +251,4 @@ class NetcrazeClient:
         :raises httpx.HTTPStatusError: If the request fails.
         :raises pydantic.ValidationError: If the router response cannot be parsed.
         """
-        res = self.session.get(f"{RCI_ENDPOINT}/show/ip/hotspot")
-        res.raise_for_status()
-        return HotspotModel(**res.json())
+        return HotspotModel.model_validate(self._get_json("/rci/show/ip/hotspot"))
