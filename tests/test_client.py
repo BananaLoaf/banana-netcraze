@@ -1,7 +1,9 @@
 import pytest
 
 from banana_netcraze.client import NetcrazeClient
-from banana_netcraze.models import DeviceModel, InterfaceModel, VersionModel
+from banana_netcraze.models.device import DeviceModel
+from banana_netcraze.models.interface import InterfaceModel
+from banana_netcraze.models.version import VersionModel
 
 
 class TestAPI:
