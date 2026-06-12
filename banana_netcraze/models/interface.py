@@ -1,13 +1,11 @@
 from typing import Any
 
-from pydantic import ConfigDict, Field, field_validator
+from pydantic import Field, field_validator
 
 from banana_netcraze.models.base import AutoNoneBaseModel
 
 
 class InterfacePortModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     index: int
     interface_name: str = Field(alias="interface-name")
@@ -30,8 +28,6 @@ class InterfacePortModel(AutoNoneBaseModel):
 
 
 class InterfaceIPV6Model(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     address: str
     prefix_length: int = Field(alias="prefix-length")
     proto: str
@@ -39,15 +35,11 @@ class InterfaceIPV6Model(AutoNoneBaseModel):
 
 
 class InterfaceBridgeModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     interface: str
     link: bool
 
 
 class InterfaceModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     index: int
     interface_name: str = Field(alias="interface-name")

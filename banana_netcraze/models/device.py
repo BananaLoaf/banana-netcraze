@@ -1,25 +1,19 @@
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from banana_netcraze.models.base import AutoNoneBaseModel
 
 
 class DeviceInterfaceModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     id: str
     name: str
     description: str
 
 
 class DeviceDhcpModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     expires: int
 
 
 class DeviceTrafficShapeModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     rx: int
     tx: int
     mode: str
@@ -27,8 +21,6 @@ class DeviceTrafficShapeModel(AutoNoneBaseModel):
 
 
 class DeviceModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     mac: str
     via: str
     ip: str

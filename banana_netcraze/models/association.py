@@ -1,11 +1,9 @@
-from pydantic import ConfigDict, Field
+from pydantic import Field
 
 from banana_netcraze.models.base import AutoNoneBaseModel
 
 
 class AssociationStationModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     mac: str
     ap: str
     psm: bool

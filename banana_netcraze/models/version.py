@@ -1,27 +1,21 @@
 from typing import Any
 
-from pydantic import ConfigDict, field_validator
+from pydantic import field_validator
 
 from banana_netcraze.models.base import AutoNoneBaseModel
 
 
 class NDMModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     exact: str
     cdate: str
 
 
 class BSPModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     exact: str
     cdate: str
 
 
 class NDWModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     features: list[str]
     components: list[str]
 
@@ -34,20 +28,14 @@ class NDWModel(AutoNoneBaseModel):
 
 
 class NDW3Model(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     version: str
 
 
 class NDW4Model(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     version: str
 
 
 class VersionModel(AutoNoneBaseModel):
-    model_config = ConfigDict(extra="forbid")
-
     release: str
     sandbox: str
     title: str
